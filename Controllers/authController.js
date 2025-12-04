@@ -111,6 +111,16 @@ exports.refresh = (req, res) => {
 
   // issue new access token
   const newAccessToken = generateAccessToken(row.user_id);
+
+  // extend refresh token expiry by another 7 days (sliding expiration)
+  const newExpiresAt = new Date(
+    Date.now() + 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
+  db.run("UPDATE refresh_tokens SET expiresAt = ? WHERE token = ?", [
+    newExpiresAt,
+    token,
+  ]);
+
   res.json({ token: newAccessToken });
 };
 
