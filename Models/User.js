@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const db = require("../Config/sqlite");
+const db = require("../Config/mysql");
 
 // Helper: hash password (keeps existing SHA-1 behavior for compatibility)
 function hashPassword(password) {
@@ -41,7 +41,7 @@ async function findOne(filter) {
     });
     const params = filter.$or.map((f) => Object.values(f)[0]);
     const sql = `SELECT * FROM users WHERE ${clauses.join(" OR ")} LIMIT 1`;
-    const row = db.get(sql, params);
+    const row = await db.get(sql, params);
     return mapRowToUser(row);
   }
 
@@ -49,7 +49,7 @@ async function findOne(filter) {
   const key = Object.keys(filter)[0];
   const value = filter[key];
   const sql = `SELECT * FROM users WHERE ${key} = ? LIMIT 1`;
-  const row = db.get(sql, [value]);
+  const row = await db.get(sql, [value]);
   return mapRowToUser(row);
 }
 
@@ -71,15 +71,15 @@ async function create(data) {
     now,
   ];
 
-  const info = db.run(stmt, params);
+  const info = await db.run(stmt, params);
   const id =
     info.lastInsertRowid || info.lastInsertROWID || info.lastInsertId || null;
-  const row = db.get("SELECT * FROM users WHERE id = ? LIMIT 1", [id]);
+  const row = await db.get("SELECT * FROM users WHERE id = ? LIMIT 1", [id]);
   return mapRowToUser(row);
 }
 
 async function findById(id) {
-  const row = db.get("SELECT * FROM users WHERE id = ? LIMIT 1", [id]);
+  const row = await db.get("SELECT * FROM users WHERE id = ? LIMIT 1", [id]);
   return mapRowToUser(row);
 }
 

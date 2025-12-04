@@ -1,5 +1,4 @@
 const express = require("express");
-// using SQLite only; removed mongoose
 const cors = require("cors");
 require("dotenv").config();
 
@@ -10,9 +9,18 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize SQLite (local DB)
-const sqlite = require("./Config/sqlite");
-sqlite.init();
+// Initialize MySQL connection pool and tables
+const mysql = require("./Config/mysql");
+(async () => {
+  try {
+    await mysql.createPool();
+    await mysql.init();
+    console.log("✅ MySQL initialized successfully");
+  } catch (error) {
+    console.error("❌ MySQL initialization failed:", error);
+    process.exit(1);
+  }
+})();
 
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
@@ -58,4 +66,17 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('\n⚠️  Shutting down gracefully...');
+  await mysql.close();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n⚠️  Shutting down gracefully...');
+  await mysql.close();
+  process.exit(0);
 });

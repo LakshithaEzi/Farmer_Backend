@@ -1,5 +1,5 @@
 const Post = require("../Models/Post");
-const { db } = require("../Config/sqlite");
+const db = require("../Config/mysql");
 
 // Like/Unlike Post
 exports.toggleLike = async (req, res) => {
@@ -20,15 +20,17 @@ exports.toggleLike = async (req, res) => {
       post.authorId.toString() !== req.user.id &&
       result.action === "liked"
     ) {
-      db.prepare(
-        "INSERT INTO notifications (recipient, type, title, message, relatedPost, actionBy) VALUES (?, ?, ?, ?, ?, ?)"
-      ).run(
-        post.authorId,
-        "like",
-        "New Like",
-        `${req.user.username} liked your post`,
-        post.id,
-        req.user.id
+      await db.run(
+        "INSERT INTO notifications (recipient, type, title, message, relatedPost, actionBy, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [
+          post.authorId,
+          "like",
+          "New Like",
+          `${req.user.username} liked your post`,
+          post.id,
+          req.user.id,
+          new Date().toISOString()
+        ]
       );
     }
 

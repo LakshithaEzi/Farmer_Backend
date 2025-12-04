@@ -1,7 +1,7 @@
 const Comment = require("../Models/Comment");
 const Post = require("../Models/Post");
 const Notification = require("../Models/Notification");
-const db = require("../Config/sqlite");
+const db = require("../Config/mysql");
 
 // Create Comment
 exports.createComment = async (req, res) => {

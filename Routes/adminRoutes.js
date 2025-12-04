@@ -27,8 +27,8 @@ router.put('/users/:userId/role', updateUserRole);
 router.get('/statistics', getStatistics);
 
 router.get('/debug/all-posts', async (req, res) => {
-  const { db } = require('../Config/sqlite');
-  const rows = db.prepare('SELECT * FROM posts').all();
+  const db = require('../Config/mysql');
+  const rows = await db.all('SELECT * FROM posts', []);
   res.json({ posts: rows });
 });
 

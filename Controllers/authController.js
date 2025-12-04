@@ -1,12 +1,12 @@
 const User = require("../Models/User");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const db = require("../Config/sqlite"); // has run/get/all
+const db = require("../Config/mysql"); // has run/get/all (async)
 
 function generateAccessToken(userId) {
   return jwt.sign(
     { id: userId },
-    process.env.JWT_SECRET || "your_secret_key_here",
+    process.env.JWT_SECRET || "secret_fa",
     { expiresIn: "15m" }
   );
 }
@@ -22,7 +22,7 @@ function generateRefreshToken() {
 const generateToken = (userId) => {
   return jwt.sign(
     { id: userId },
-    process.env.JWT_SECRET || "your_secret_key_here",
+    process.env.JWT_SECRET || "secret_fa",
     { expiresIn: "7d" }
   );
 };
@@ -85,43 +85,52 @@ exports.register = async (req, res) => {
 };
 
 // controllers/authController.js
-exports.refresh = (req, res) => {
-  const token = req.cookies.refreshToken;
-  if (!token)
-    return res
-      .status(401)
-      .json({ success: false, message: "No refresh token" });
+exports.refresh = async (req, res) => {
+  try {
+    const token = req.cookies.refreshToken;
+    if (!token)
+      return res
+        .status(401)
+        .json({ success: false, message: "No refresh token" });
 
-  const row = db.get("SELECT * FROM refresh_tokens WHERE token = ? LIMIT 1", [
-    token,
-  ]);
-  if (!row)
-    return res
-      .status(401)
-      .json({ success: false, message: "Invalid refresh token" });
+    const row = await db.get("SELECT * FROM refresh_tokens WHERE token = ? LIMIT 1", [
+      token,
+    ]);
+    if (!row)
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid refresh token" });
 
-  if (new Date(row.expiresAt) < new Date()) {
-    // token expired - delete row and ask to login again
-    db.run("DELETE FROM refresh_tokens WHERE token = ?", [token]);
-    res.clearCookie("refreshToken");
-    return res
-      .status(401)
-      .json({ success: false, message: "Refresh token expired" });
+    if (new Date(row.expiresAt) < new Date()) {
+      // token expired - delete row and ask to login again
+      await db.run("DELETE FROM refresh_tokens WHERE token = ?", [token]);
+      res.clearCookie("refreshToken");
+      return res
+        .status(401)
+        .json({ success: false, message: "Refresh token expired" });
+    }
+
+    // issue new access token
+    const newAccessToken = generateAccessToken(row.user_id);
+
+    // extend refresh token expiry by another 7 days (sliding expiration)
+    const newExpiresAt = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000
+    ).toISOString();
+    await db.run("UPDATE refresh_tokens SET expiresAt = ? WHERE token = ?", [
+      newExpiresAt,
+      token,
+    ]);
+
+    res.json({ token: newAccessToken });
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error refreshing token",
+      error: error.message,
+    });
   }
-
-  // issue new access token
-  const newAccessToken = generateAccessToken(row.user_id);
-
-  // extend refresh token expiry by another 7 days (sliding expiration)
-  const newExpiresAt = new Date(
-    Date.now() + 7 * 24 * 60 * 60 * 1000
-  ).toISOString();
-  db.run("UPDATE refresh_tokens SET expiresAt = ? WHERE token = ?", [
-    newExpiresAt,
-    token,
-  ]);
-
-  res.json({ token: newAccessToken });
 };
 
 // Login User
@@ -166,7 +175,7 @@ exports.login = async (req, res) => {
     const expiresAt = new Date(
       Date.now() + 7 * 24 * 60 * 60 * 1000
     ).toISOString();
-    db.run(
+    await db.run(
       "INSERT INTO refresh_tokens (token, user_id, expiresAt, createdAt) VALUES (?, ?, ?, ?)",
       [refreshToken, user.id || user._id, expiresAt, new Date().toISOString()]
     );
@@ -221,9 +230,18 @@ exports.getMe = async (req, res) => {
 };
 
 // Logout User
-exports.logout = (req, res) => {
-  const token = req.cookies.refreshToken;
-  if (token) db.run("DELETE FROM refresh_tokens WHERE token = ?", [token]);
-  res.clearCookie("refreshToken");
-  res.json({ success: true, message: "Logged out" });
+exports.logout = async (req, res) => {
+  try {
+    const token = req.cookies.refreshToken;
+    if (token) await db.run("DELETE FROM refresh_tokens WHERE token = ?", [token]);
+    res.clearCookie("refreshToken");
+    res.json({ success: true, message: "Logged out" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error logging out",
+      error: error.message,
+    });
+  }
 };

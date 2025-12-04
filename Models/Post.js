@@ -1,29 +1,5 @@
-const { db } = require("../Config/sqlite");
+const db = require("../Config/mysql");
 const User = require("./User");
-
-// Ensure posts table exists
-const createPostsTable = `
-  CREATE TABLE IF NOT EXISTS posts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, 
-    title TEXT,
-    content TEXT,
-    category TEXT,
-    images TEXT,
-    author INTEGER,
-    status TEXT DEFAULT 'pending',
-    moderationNote TEXT,
-    moderatedBy INTEGER,
-    moderatedAt TEXT,
-    likes TEXT,
-    commentsCount INTEGER DEFAULT 0,
-    viewsCount INTEGER DEFAULT 0,
-    isActive INTEGER DEFAULT 1,
-    createdAt TEXT DEFAULT (datetime('now')),
-    updatedAt TEXT
-  )
-`;
-
-db.prepare(createPostsTable).run();
 
 function now() {
   return new Date().toISOString();
@@ -73,12 +49,11 @@ async function create(data) {
     createdAt,
     updatedAt,
   ];
-  
-  // ✅ FIXED: Use prepare().run() for better-sqlite3
-  const info = db.prepare(stmt).run(params);
+
+  const info = await db.run(stmt, params);
   const id = info.lastInsertRowid;
-  
-  const row = db.prepare("SELECT * FROM posts WHERE id = ? LIMIT 1").get(id);
+
+  const row = await db.get("SELECT * FROM posts WHERE id = ? LIMIT 1", [id]);
   const post = mapRow(row);
   post.author = await User.findById(post.authorId);
   return post;
@@ -118,10 +93,8 @@ async function find(filter = {}, options = {}) {
   const whereObj = buildWhere(filter, params);
   const sql = `SELECT * FROM posts ${whereObj.clause} ORDER BY ${sortBy} ${order} LIMIT ? OFFSET ?`;
   params.push(limit, skip);
-  
-  // ✅ FIXED: Use prepare().all()
 
-  const rows = db.prepare(sql).all(params);
+  const rows = await db.all(sql, params);
   const posts = [];
   for (const row of rows) {
     const post = mapRow(row);
@@ -131,19 +104,17 @@ async function find(filter = {}, options = {}) {
   return posts;
 }
 
-function count(filter = {}) {
+async function count(filter = {}) {
   const params = [];
   const whereObj = buildWhere(filter, params);
   const sql = `SELECT COUNT(*) as cnt FROM posts ${whereObj.clause}`;
-  
-  // ✅ FIXED: Use prepare().get()
-  const row = db.prepare(sql).get(params);
+
+  const row = await db.get(sql, params);
   return row ? row.cnt : 0;
 }
 
 async function findById(id) {
-  // ✅ FIXED: Use prepare().get()
-  const row = db.prepare("SELECT * FROM posts WHERE id = ? LIMIT 1").get(id);
+  const row = await db.get("SELECT * FROM posts WHERE id = ? LIMIT 1", [id]);
   const post = mapRow(row);
   if (!post) return null;
   post.author = await User.findById(post.authorId);
@@ -152,7 +123,7 @@ async function findById(id) {
   return post;
 }
 
-function update(id, data) {
+async function update(id, data) {
   const fields = [];
   const params = [];
   if (data.title !== undefined) {
@@ -204,21 +175,18 @@ function update(id, data) {
   params.push(now());
   params.push(id);
   const sql = `UPDATE posts SET ${fields.join(", ")} WHERE id = ?`;
-  
-  // ✅ FIXED: Use prepare().run()
-  db.prepare(sql).run(params);
+
+  await db.run(sql, params);
   return findById(id);
 }
 
-function incrementViews(id) {
-  // ✅ FIXED: Use prepare().run()
-  db.prepare("UPDATE posts SET viewsCount = viewsCount + 1 WHERE id = ?").run(id);
+async function incrementViews(id) {
+  await db.run("UPDATE posts SET viewsCount = viewsCount + 1 WHERE id = ?", [id]);
   return findById(id);
 }
 
-function toggleLike(id, userId) {
-  // ✅ FIXED: Use prepare().get()
-  const row = db.prepare("SELECT likes FROM posts WHERE id = ? LIMIT 1").get(id);
+async function toggleLike(id, userId) {
+  const row = await db.get("SELECT likes FROM posts WHERE id = ? LIMIT 1", [id]);
   if (!row) return null;
   const likes = row.likes ? JSON.parse(row.likes) : [];
   const idx = likes.indexOf(userId.toString());
@@ -229,12 +197,11 @@ function toggleLike(id, userId) {
   } else {
     likes.push(userId.toString());
   }
-  
-  // ✅ FIXED: Use prepare().run()
-  db.prepare("UPDATE posts SET likes = ? WHERE id = ?").run(
+
+  await db.run("UPDATE posts SET likes = ? WHERE id = ?", [
     JSON.stringify(likes),
     id
-  );
+  ]);
   return { action, likesCount: likes.length };
 }
 

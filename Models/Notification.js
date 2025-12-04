@@ -1,4 +1,4 @@
-const { db } = require("../Config/sqlite");
+const db = require("../Config/mysql");
 const User = require("./User");
 const Post = require("./Post");
 
@@ -38,13 +38,13 @@ async function create(data) {
     data.readAt || null,
     createdAt,
   ];
-  const info = db.run(stmt, params);
+  const info = await db.run(stmt, params);
   const id =
     info.lastInsertROWID ||
     info.lastInsertRowid ||
     info.lastInsertId ||
     info.lastInsert;
-  const row = db.get("SELECT * FROM notifications WHERE id = ? LIMIT 1", [id]);
+  const row = await db.get("SELECT * FROM notifications WHERE id = ? LIMIT 1", [id]);
   const n = mapRow(row);
   // populate small relations
   if (n) {
@@ -77,7 +77,7 @@ async function find(filter = {}, options = {}) {
   const whereObj = buildWhere(filter, params);
   const sql = `SELECT * FROM notifications ${whereObj.clause} ORDER BY createdAt DESC LIMIT ? OFFSET ?`;
   params.push(limit, skip);
-  const rows = db.all(sql, params);
+  const rows = await db.all(sql, params);
   const results = [];
   for (const row of rows) {
     const n = mapRow(row);
@@ -89,16 +89,16 @@ async function find(filter = {}, options = {}) {
   return results;
 }
 
-function count(filter = {}) {
+async function count(filter = {}) {
   const params = [];
   const whereObj = buildWhere(filter, params);
   const sql = `SELECT COUNT(*) as cnt FROM notifications ${whereObj.clause}`;
-  const row = db.get(sql, params);
+  const row = await db.get(sql, params);
   return row ? row.cnt : 0;
 }
 
 async function findById(id) {
-  const row = db.get("SELECT * FROM notifications WHERE id = ? LIMIT 1", [id]);
+  const row = await db.get("SELECT * FROM notifications WHERE id = ? LIMIT 1", [id]);
   const n = mapRow(row);
   if (!n) return null;
   n.recipient = await User.findById(n.recipientId);
@@ -121,16 +121,16 @@ async function update(id, data) {
   if (fields.length === 0) return null;
   params.push(id);
   const sql = `UPDATE notifications SET ${fields.join(", ")} WHERE id = ?`;
-  db.run(sql, params);
+  await db.run(sql, params);
   return await findById(id);
 }
 
-function remove(id) {
-  db.run("DELETE FROM notifications WHERE id = ?", [id]);
+async function remove(id) {
+  await db.run("DELETE FROM notifications WHERE id = ?", [id]);
   return true;
 }
 
-function updateMany(filter, data) {
+async function updateMany(filter, data) {
   const params = [];
   const whereObj = buildWhere(filter, params);
   const fields = [];
@@ -147,7 +147,7 @@ function updateMany(filter, data) {
   const sql = `UPDATE notifications SET ${fields.join(", ")} ${
     whereObj.clause
   }`;
-  db.run(sql, [...setParams, ...params]);
+  await db.run(sql, [...setParams, ...params]);
   return true;
 }
 

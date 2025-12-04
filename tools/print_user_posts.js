@@ -1,5 +1,4 @@
-const path = require("path");
-const { db, init } = require("../Config/sqlite");
+require("dotenv").config();
 
 async function main() {
   const args = process.argv.slice(2);
@@ -9,17 +8,21 @@ async function main() {
   }
   const userId = args[0];
 
-  // Ensure DB initialized (noop if already)
-  if (typeof init === "function") init();
+  // Initialize MySQL connection
+  const db = require("../Config/mysql");
 
   try {
-    const rows = db
-      .prepare(
-        "SELECT id, title, status, author, createdAt FROM posts WHERE author = ? ORDER BY createdAt DESC"
-      )
-      .all(userId);
+    await db.createPool();
+    console.log("✅ MySQL initialized");
+
+    const rows = await db.all(
+      "SELECT id, title, status, author, createdAt FROM posts WHERE author = ? ORDER BY createdAt DESC",
+      [userId]
+    );
+
     if (!rows || rows.length === 0) {
       console.log(`No posts found for userId=${userId}`);
+      await db.close();
       return;
     }
 
@@ -29,8 +32,11 @@ async function main() {
         `- id=${r.id} status=${r.status} title=${r.title} createdAt=${r.createdAt}`
       );
     }
+
+    await db.close();
   } catch (err) {
     console.error("Error querying posts:", err.message);
+    await db.close();
     process.exit(2);
   }
 }
