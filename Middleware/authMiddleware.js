@@ -27,7 +27,6 @@ exports.protect = async (req, res, next) => {
       process.env.JWT_SECRET || "your_secret_key_here"
     );
 
-    // Get user from token (User.findById returns a plain object for SQLite)
     const user = await User.findById(decoded.id);
     if (user && user.password) delete user.password;
     req.user = user;

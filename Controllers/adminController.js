@@ -8,13 +8,11 @@ exports.getPendingPosts = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
 
-    // ✅ Use SQLite Post.find() method with proper filter
     const posts = await Post.find(
       { status: 'pending', isActive: true },
       { page, limit, sortBy: 'createdAt', order: 'desc' }
     );
 
-    // ✅ Use SQLite Post.count() method
     const total = Post.count({ status: 'pending', isActive: true });
 
     res.status(200).json({
@@ -43,7 +41,6 @@ exports.approvePost = async (req, res) => {
     const { id } = req.params;
     const { moderationNote } = req.body;
 
-    // ✅ Use SQLite Post.findById()
     const post = await Post.findById(id);
 
     if (!post) {
@@ -60,7 +57,6 @@ exports.approvePost = async (req, res) => {
       });
     }
 
-    // ✅ Use SQLite Post.update() method
     const updatedPost = await Post.update(id, {
       status: 'approved',
       moderatedBy: req.user.id,
@@ -107,7 +103,6 @@ exports.rejectPost = async (req, res) => {
       });
     }
 
-    // ✅ Use SQLite Post.findById()
     const post = await Post.findById(id);
 
     if (!post) {
@@ -124,7 +119,6 @@ exports.rejectPost = async (req, res) => {
       });
     }
 
-    // ✅ Use SQLite Post.update() method
     const updatedPost = await Post.update(id, {
       status: 'rejected',
       moderatedBy: req.user.id,
@@ -171,7 +165,6 @@ exports.getAllUsers = async (req, res) => {
       filter.role = role;
     }
 
-    // ✅ Use SQLite User methods
     const users = await User.find(filter, { 
       page, 
       limit, 
@@ -204,7 +197,6 @@ exports.getAllUsers = async (req, res) => {
 // Get Platform Statistics (Admin Only)
 exports.getStatistics = async (req, res) => {
   try {
-    // ✅ Use SQLite count methods
     const totalUsers = User.count({ isActive: true });
     const totalPosts = Post.count({ isActive: true });
     const pendingPosts = Post.count({ status: 'pending', isActive: true });
@@ -262,7 +254,6 @@ exports.updateUserRole = async (req, res) => {
       });
     }
 
-    // ✅ Use SQLite User.findById()
     const user = await User.findById(userId);
 
     if (!user) {
@@ -280,7 +271,6 @@ exports.updateUserRole = async (req, res) => {
       });
     }
 
-    // ✅ Use SQLite User.update()
     const updatedUser = await User.update(userId, { role });
 
     res.status(200).json({
