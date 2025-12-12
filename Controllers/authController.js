@@ -3,6 +3,11 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const db = require("../Config/mysql"); // has run/get/all (async)
 
+// Helper: format date for MySQL DATETIME
+function formatMySQLDateTime(date = new Date()) {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 function generateAccessToken(userId) {
   return jwt.sign(
     { id: userId },
@@ -114,9 +119,9 @@ exports.refresh = async (req, res) => {
     const newAccessToken = generateAccessToken(row.user_id);
 
     // extend refresh token expiry by another 7 days (sliding expiration)
-    const newExpiresAt = new Date(
+    const newExpiresAt = formatMySQLDateTime(new Date(
       Date.now() + 7 * 24 * 60 * 60 * 1000
-    ).toISOString();
+    ));
     await db.run("UPDATE refresh_tokens SET expiresAt = ? WHERE token = ?", [
       newExpiresAt,
       token,
@@ -172,12 +177,12 @@ exports.login = async (req, res) => {
 
     // create refresh token, store in DB
     const refreshToken = generateRefreshToken();
-    const expiresAt = new Date(
+    const expiresAt = formatMySQLDateTime(new Date(
       Date.now() + 7 * 24 * 60 * 60 * 1000
-    ).toISOString();
+    ));
     await db.run(
       "INSERT INTO refresh_tokens (token, user_id, expiresAt, createdAt) VALUES (?, ?, ?, ?)",
-      [refreshToken, user.id || user._id, expiresAt, new Date().toISOString()]
+      [refreshToken, user.id || user._id, expiresAt, formatMySQLDateTime()]
     );
 
     // set cookie (HttpOnly)

@@ -6,6 +6,11 @@ function hashPassword(password) {
   return crypto.createHash("sha1").update(password).digest("hex");
 }
 
+// Helper: format date for MySQL DATETIME
+function formatMySQLDateTime(date = new Date()) {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 // Map DB row to user-like object used by controllers
 function mapRowToUser(row) {
   if (!row) return null;
@@ -54,7 +59,7 @@ async function findOne(filter) {
 }
 
 async function create(data) {
-  const now = new Date().toISOString();
+  const now = formatMySQLDateTime();
   const hashed = hashPassword(data.password);
   const profileStr = data.profile ? JSON.stringify(data.profile) : null;
   const stmt = `INSERT INTO users (username, email, password, role, profile, isActive, isEmailVerified, lastLogin, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -83,8 +88,56 @@ async function findById(id) {
   return mapRowToUser(row);
 }
 
+function buildWhere(filter, params) {
+  const where = [];
+  if (!filter) return { clause: "", params };
+
+  if (filter.isActive !== undefined) {
+    where.push("isActive = ?");
+    params.push(filter.isActive ? 1 : 0);
+  }
+  if (filter.role) {
+    where.push("role = ?");
+    params.push(filter.role);
+  }
+  if (filter.isEmailVerified !== undefined) {
+    where.push("isEmailVerified = ?");
+    params.push(filter.isEmailVerified ? 1 : 0);
+  }
+
+  return { clause: where.length ? "WHERE " + where.join(" AND ") : "", params };
+}
+
+async function find(filter = {}, options = {}) {
+  const page = parseInt(options.page || 1, 10);
+  const limit = parseInt(options.limit || 20, 10);
+  const skip = (page - 1) * limit;
+  const sortBy = options.sortBy || "createdAt";
+  const order = options.order === "asc" ? "ASC" : "DESC";
+
+  const params = [];
+  const whereObj = buildWhere(filter, params);
+  const sql = `SELECT * FROM users ${whereObj.clause} ORDER BY ${sortBy} ${order} LIMIT ? OFFSET ?`;
+  params.push(limit, skip);
+
+  const rows = await db.all(sql, params);
+  const users = rows.map(row => mapRowToUser(row));
+  return users;
+}
+
+async function count(filter = {}) {
+  const params = [];
+  const whereObj = buildWhere(filter, params);
+  const sql = `SELECT COUNT(*) as cnt FROM users ${whereObj.clause}`;
+
+  const row = await db.get(sql, params);
+  return row ? row.cnt : 0;
+}
+
 module.exports = {
   findOne,
   create,
   findById,
+  find,
+  count,
 };

@@ -13,7 +13,7 @@ exports.getPendingPosts = async (req, res) => {
       { page, limit, sortBy: 'createdAt', order: 'desc' }
     );
 
-    const total = Post.count({ status: 'pending', isActive: true });
+    const total = await Post.count({ status: 'pending', isActive: true });
 
     res.status(200).json({
       success: true,
@@ -165,14 +165,14 @@ exports.getAllUsers = async (req, res) => {
       filter.role = role;
     }
 
-    const users = await User.find(filter, { 
-      page, 
-      limit, 
-      sortBy: 'createdAt', 
-      order: 'desc' 
+    const users = await User.find(filter, {
+      page,
+      limit,
+      sortBy: 'createdAt',
+      order: 'desc'
     });
 
-    const total = User.count(filter);
+    const total = await User.count(filter);
 
     res.status(200).json({
       success: true,
@@ -197,15 +197,15 @@ exports.getAllUsers = async (req, res) => {
 // Get Platform Statistics (Admin Only)
 exports.getStatistics = async (req, res) => {
   try {
-    const totalUsers = User.count({ isActive: true });
-    const totalPosts = Post.count({ isActive: true });
-    const pendingPosts = Post.count({ status: 'pending', isActive: true });
-    const approvedPosts = Post.count({ status: 'approved', isActive: true });
-    const rejectedPosts = Post.count({ status: 'rejected' });
+    const totalUsers = await User.count({ isActive: true });
+    const totalPosts = await Post.count({ isActive: true });
+    const pendingPosts = await Post.count({ status: 'pending', isActive: true });
+    const approvedPosts = await Post.count({ status: 'approved', isActive: true });
+    const rejectedPosts = await Post.count({ status: 'rejected' });
 
     // Users by role
-    const adminCount = User.count({ role: 'admin', isActive: true });
-    const registeredCount = User.count({ role: 'registered', isActive: true });
+    const adminCount = await User.count({ role: 'admin', isActive: true });
+    const registeredCount = await User.count({ role: 'registered', isActive: true });
 
     // Recent activity - get recent posts
     const recentPosts = await Post.find(
@@ -236,59 +236,6 @@ exports.getStatistics = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching statistics',
-      error: error.message
-    });
-  }
-};
-
-// Update User Role (Admin Only)
-exports.updateUserRole = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { role } = req.body;
-
-    if (!['admin', 'registered'].includes(role)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid role. Must be admin or registered'
-      });
-    }
-
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Prevent self-demotion
-    if (user.id === req.user.id && role !== 'admin') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot change your own admin role'
-      });
-    }
-
-    const updatedUser = await User.update(userId, { role });
-
-    res.status(200).json({
-      success: true,
-      message: `User role updated to ${role}`,
-      user: {
-        id: updatedUser.id,
-        username: updatedUser.username,
-        email: updatedUser.email,
-        role: updatedUser.role
-      }
-    });
-
-  } catch (error) {
-    console.error('Update user role error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating user role',
       error: error.message
     });
   }

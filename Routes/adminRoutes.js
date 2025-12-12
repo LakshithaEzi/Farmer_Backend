@@ -6,7 +6,6 @@ const {
   rejectPost,
   getAllUsers,
   getStatistics,
-  updateUserRole
 } = require('../Controllers/adminController');
 const { protect, restrictTo } = require('../Middleware/authMiddleware');
 
@@ -21,8 +20,6 @@ router.put('/posts/:id/reject', rejectPost);
 
 // User management
 router.get('/users', getAllUsers);
-router.put('/users/:userId/role', updateUserRole);
-
 // Statistics
 router.get('/statistics', getStatistics);
 
